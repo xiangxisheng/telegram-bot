@@ -79,7 +79,7 @@ module.exports = async function (_options) {
 					return oPrivate.client.request(options);
 				} catch (err) {
 					if (err.code === 'ERR_HTTP2_INVALID_SESSION') {
-						console.info(err);
+						console.info('http2_fetch.oPrivate.request()', err.code);
 						await oPrivate.init();
 						if (i <= 3) {
 							continue;
