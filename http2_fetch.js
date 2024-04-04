@@ -78,8 +78,12 @@ module.exports = async function (_options) {
 				try {
 					return oPrivate.client.request(options);
 				} catch (err) {
-					if (err.code === 'ERR_HTTP2_INVALID_SESSION') {
-						console.info('http2_fetch.oPrivate.request()', err.code);
+					const mCode = {};
+					mCode['ERR_HTTP2_INVALID_SESSION'] = 'http2_fetch.oPrivate.request()';
+					mCode['ERR_HTTP2_GOAWAY_SESSION'] = 'http2_fetch.oPrivate.request()';
+					if (mCode.hasOwnProperty(err.code)) {
+						const sMsg = mCode[err.code];
+						console.info(sMsg, err.code);
 						await oPrivate.init();
 						if (i <= 3) {
 							continue;
