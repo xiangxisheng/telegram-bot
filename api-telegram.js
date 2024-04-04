@@ -60,16 +60,20 @@ module.exports = async function (token) {
 					for (const mRow of data.result) {
 						// 遍历消息内容
 						oPrivate.update_id = mRow.update_id;
-						//console.log(mRow);
+						//console.log(JSON.stringify(mRow));
 						if (mRow.message) {
 							const message = mRow.message;
 							const mParams = await do_message(message);
 							//console.log(new Date(), message.from.id, message, response_text);
-							oPublic.sendMessage(message.from.id, mParams);
+							if (mParams) {
+								oPublic.sendMessage(message.from.id, mParams);
+							}
 						}
 						if (mRow.callback_query) {
 							const mParams = await do_callback_query(mRow.callback_query.from.id, mRow.callback_query.data);
-							oPublic.editMessageText(mRow.callback_query.from.id, mRow.callback_query.message.message_id, mParams);
+							if (mParams) {
+								oPublic.editMessageText(mRow.callback_query.from.id, mRow.callback_query.message.message_id, mParams);
+							}
 						}
 					};
 				} catch (e) {

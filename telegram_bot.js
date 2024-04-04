@@ -8,13 +8,29 @@ async function subscribe_add(mqttClient, topic, userid) {
 	if (!gData.subscribe[topic]) {
 		gData.subscribe[topic] = {};
 	}
-	gData.subscribe[topic].userids = {};
+	if (!gData.subscribe[topic].userids) {
+		gData.subscribe[topic].userids = {};
+	}
 	gData.subscribe[topic].userids[userid] = {};
 	const subscribed = await mqttClient.subscribeAsync(topic, { qos: 0 });
 	console.log(`subscribed =>`, subscribed);
 	// 添加完成后就可以保存json文件了
 	fs.writeFileSync('data.subscribe.json', JSON.stringify(gData.subscribe))
 };
+async function subscribe_remove(mqttClient, topic, userid) {
+	if (!gData.subscribe[topic]) {
+		return;
+	}
+	if (!gData.subscribe[topic].userids) {
+		return;
+	}
+	delete gData.subscribe[topic].userids[userid];
+	const unsubscribed = await mqttClient.unsubscribeAsync(topic, { qos: 0 });
+	console.log(`unsubscribed =>`, unsubscribed);
+	// 添加完成后就可以保存json文件了
+	fs.writeFileSync('data.subscribe.json', JSON.stringify(gData.subscribe))
+};
+
 
 const tg_fromId = {};
 function tg_from_get(from_id, key) {
@@ -77,58 +93,66 @@ async function start() {
 					{ "text": "新增订阅", "callback_data": "subscribe_new" },
 					{ "text": "订阅列表", "callback_data": "subscribe_list" }
 				],
-				[
-					{ "text": "按钮3", "callback_data": "button3" }
-				]
 			]
 		};
 		return { text, reply_markup: JSON.stringify(reply_markup) };
 	}
+	function menu_sub(text, inline_keyboard = [], mBackMenu) {
+		const reply_markup = {
+			inline_keyboard,
+		};
+		reply_markup.inline_keyboard.push([mBackMenu]);
+		return { text, reply_markup: JSON.stringify(reply_markup) };
+	}
 	bot.start(
 		async function (msg) {
+			const from_id = msg.from.id;
 			console.log(msg);
-			bot.deleteMessage(msg.chat.id, msg.message_id);
 			// 命令相关的优先处理
 			if (msg.text === '/start') {
-				return menu_main("请选择您要操作的功能");
+				tg_from_set(from_id, 'cmdflag', '');
+				return menu_main(`请选择您要操作的功能`);
 			}
 			// 命令相关处理结束
-			if (tg_from_get(msg.from.id, 'cmdflag') === 'subscribe') {
-				tg_from_set(msg.from.id, 'cmdflag', '');
-				subscribe_add(mqttClient, msg.text, msg.from.id);
-				return { text: '订阅成功' };
+			if (tg_from_get(from_id, 'cmdflag') === 'subscribe') {
+				tg_from_set(from_id, 'cmdflag', '');
+				subscribe_add(mqttClient, msg.text, from_id);
+				bot.deleteMessage(msg.chat.id, msg.message_id);
+				return menu_main(`订阅成功`);
 			}
 			return { text: msg.text };
 		},
-		async function (from_id, data) {
-			console.log(from_id, data);
-			if (data === 'main') {
-				return menu_main("请选择您要操作的功能");
+		async function (from_id, sData) {
+			console.log(from_id, sData);
+			const aData = sData.split(':');
+			if (aData[0] === 'main') {
+				tg_from_set(from_id, 'cmdflag', '');
+				return menu_main(`请选择您要操作的功能`);
 			}
-			if (data === 'subscribe_new') {
+			if (aData[0] === 'subscribe_new') {
 				tg_from_set(from_id, 'cmdflag', 'subscribe');
-				const reply_markup = {
-					"inline_keyboard": [
-						[
-							{ "text": "返回主菜单", "callback_data": "main" }
-						]
-					]
-				};
-				return { text: "好的，请发送您要订阅的频道，例如testtopic/#", reply_markup: JSON.stringify(reply_markup) };
+				return menu_sub(`请选择您要订阅的主题`, [], { "text": "返回主菜单", "callback_data": "main" });
 			}
-			if (data === 'subscribe_list') {
-				const reply_markup = {
-					"inline_keyboard": [
-						[
-							{ "text": "按钮11", "callback_data": "button1" },
-							{ "text": "按钮22", "callback_data": "button2" }
-						],
-						[
-							{ "text": "返回主菜单", "callback_data": "main" }
-						]
-					]
-				};
-				return { text: "请选择您要操作的订阅", reply_markup: JSON.stringify(reply_markup) };
+			if (aData[0] === 'subscribe_list') {
+				const aList = [];
+				for (const sTopic in gData.subscribe) {
+					const mTopicInfo = gData.subscribe[sTopic];
+					for (const sUserid in mTopicInfo.userids) {
+						if (sUserid == from_id) {
+							aList.push([{ "text": sTopic, "callback_data": `subscribe_info:${sTopic}` }]);
+						}
+					}
+				}
+				return menu_sub(`请选择您要操作的订阅`, aList, { "text": "返回主菜单", "callback_data": "main" });
+			}
+			if (aData[0] === 'subscribe_info') {
+				return menu_sub(`您想对订阅 ${aData[1]} 操作什么？`, [
+					[{ "text": "取消订阅", "callback_data": `subscribe_remove:${aData[1]}` }],
+				], { "text": "返回订阅列表", "callback_data": `subscribe_list` });
+			}
+			if (aData[0] === 'subscribe_remove') {
+				subscribe_remove(mqttClient, aData[1], from_id);
+				return menu_sub(`已经对 ${aData[1]} 取消订阅了！`, [], { "text": "返回订阅列表", "callback_data": `subscribe_list` });
 			}
 		}
 	);
