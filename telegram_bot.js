@@ -90,6 +90,7 @@ async function start() {
 		const reply_markup = {
 			"inline_keyboard": [
 				[
+					{ "text": "我的", "callback_data": "me" },
 					{ "text": "新增订阅", "callback_data": "subscribe_new" },
 					{ "text": "订阅列表", "callback_data": "subscribe_list" }
 				],
@@ -129,6 +130,9 @@ async function start() {
 				tg_from_set(from_id, 'cmdflag', '');
 				return menu_main(`请选择您要操作的功能`);
 			}
+			if (aData[0] === 'me') {
+				return menu_sub(`您的from_id是${from_id}`, [], { "text": "返回主菜单", "callback_data": "main" });
+			}
 			if (aData[0] === 'subscribe_new') {
 				tg_from_set(from_id, 'cmdflag', 'subscribe');
 				return menu_sub(`请选择您要订阅的主题`, [], { "text": "返回主菜单", "callback_data": "main" });
@@ -159,6 +163,12 @@ async function start() {
 
 	// 第3步：监听消息
 	mqttClient.on('message', (topic, payload) => {
+		const aTopic = topic.split('/');
+		if (aTopic.length === 3) {
+			if (aTopic[1] === 'telegram_chat_id') {
+				bot.sendMessage(aTopic[2], { text: payload.toString() });
+			}
+		}
 		const userids = get_userids_by_topic(gData.subscribe, topic);
 		for (const k in userids) {
 			const userid = userids[k];
@@ -169,6 +179,7 @@ async function start() {
 
 	// 第4步：订阅消息
 	gData.subscribe = fs.existsSync('data.subscribe.json') ? JSON.parse(fs.readFileSync('data.subscribe.json')) : {};
+	//gData.subscribe["telegram_chat_id/#"] = {};
 	for (const topic in gData.subscribe) {
 		const subscribed = await mqttClient.subscribeAsync(topic, { qos: 0 });
 		console.log(`subscribed =>`, subscribed);
