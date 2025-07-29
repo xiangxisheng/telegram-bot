@@ -70,8 +70,24 @@ function get_userids_by_topic(dataSubscribe, topic) {
 	return aUserids;
 }
 
+function bot_sendMessage(bot, topic, message) {
+	if (bot) {
+		const aTopic = topic.split('/');
+		if (aTopic.length === 3) {
+			if (aTopic[1] === 'telegram_chat_id') {
+				bot.sendMessage(aTopic[2], { text: message });
+			}
+		}
+		const userids = get_userids_by_topic(gData.subscribe, topic);
+		for (const k in userids) {
+			const userid = userids[k];
+			bot.sendMessage(userid, { text: message });
+		}
+	}
+}
+
 async function start() {
-	const url = "mqtts://i6ea568f.ala.cn-hangzhou.emqxsl.cn:8883"
+	const url = "mqtts://b016e005.ala.asia-southeast1.emqxsl.com:8883"
 	const clientId = 'telegram';
 	const username = 'firadio';
 	const password = 'firadio';
@@ -163,17 +179,7 @@ async function start() {
 
 	// 第3步：监听消息
 	mqttClient.on('message', (topic, payload) => {
-		const aTopic = topic.split('/');
-		if (aTopic.length === 3) {
-			if (aTopic[1] === 'telegram_chat_id') {
-				bot.sendMessage(aTopic[2], { text: payload.toString() });
-			}
-		}
-		const userids = get_userids_by_topic(gData.subscribe, topic);
-		for (const k in userids) {
-			const userid = userids[k];
-			bot.sendMessage(userid, { text: payload.toString() });
-		}
+		bot_sendMessage(bot, topic, payload.toString());
 		console.log('Received Message:', topic, payload.toString())
 	});
 
@@ -185,6 +191,7 @@ async function start() {
 		console.log(`subscribed =>`, subscribed);
 	}
 
+	bot_sendMessage(bot, 'firadio/yun_nthost_instance', 'telegram_bot is running');
 
 };
 
