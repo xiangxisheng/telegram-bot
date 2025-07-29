@@ -1,0 +1,15 @@
+services:
+  node:
+    container_name: firadio-telegram-bot
+    image: node
+    restart: always
+    environment:
+      - TELEGRAM_API_TOKEN=${TELEGRAM_API_TOKEN}
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: node telegram_bot.js
+    network_mode: host
+    storage_opt:
+      size: 100M
+
